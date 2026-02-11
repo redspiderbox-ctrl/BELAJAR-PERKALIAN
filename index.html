@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belajar Perkalian dengan Suara</title>
+    <!-- Font Fredoka agar tulisan terlihat seperti tulisan anak-anak -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f0f8ff;
+            --text-color: #333;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: var(--bg-color);
+            /* Pola latar belakang titik-titik */
+            background-image: radial-gradient(#dbeafe 2px, transparent 2px);
+            background-size: 30px 30px;
+            margin: 0;
+            padding: 40px 20px;
+            color: var(--text-color);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3rem;
+            color: #2c3e50;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 0px #ffffff;
+        }
+
+        h1 span {
+            color: #ff6b6b;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 25px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.12);
+        }
+
+        /* Area Header */
+        .card-header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        /* Tombol Suara */
+        .play-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .play-btn:hover {
+            background: white;
+            color: inherit; /* Mengambil warna teks header */
+            transform: scale(1.1);
+        }
+
+        .play-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Efek saat sedang memutar (bisa ditambahkan via JS class nanti jika mau) */
+        .playing {
+            background: white !important;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        ul {
+            list-style: none;
+            padding: 20px;
+            margin: 0;
+            flex-grow: 1; /* Agar list memenuhi sisa ruang */
+        }
+
+        li {
+            font-size: 1.5rem;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        li:hover {
+            background-color: #eef2ff;
+        }
+
+        .result {
+            color: #ff6b6b;
+            font-weight: 700;
+        }
+
+        /* Responsif untuk HP */
+        @media (max-width: 600px) {
+            h1 { font-size: 2.2rem; }
+            .container { grid-template-columns: 1fr; }
+            .card-header { font-size: 1.5rem; }
+            li { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Belajar <span>Perkalian</span> 🔊</h1>
+
+    <div class="container" id="perkalianContainer"></div>
+
+    <script>
+        const container = document.getElementById("perkalianContainer");
+
+        // Palet warna cerah untuk setiap kelompok
+        const colors = [
+            "#FF6B6B", "#FF4757", "#2ED573", "#1E90FF", "#FFA502", 
+            "#3742FA", "#8E44AD", "#FF6B81", "#00CEC9", "#6C5CE7"
+        ];
+
+        // Fungsi untuk memicu suara
+        function playGroup(number, btnElement, color) {
+            // 1. Hentikan suara yang sedang berjalan (jika ada)
+            window.speechSynthesis.cancel();
+
+            // 2. Ubah tampilan tombol seolah-olah sedang loading/playing
+            btnElement.innerHTML = '⏸'; // Ikon pause/stop
+            btnElement.classList.add('playing');
+            
+            // 3. Siapkan daftar kalimat
+            const sentences = [];
+            for (let j = 1; j <= 10; j++) {
+                // Format kalimat: "Satu kali satu sama dengan satu"
+                sentences.push(`${number} kali ${j} sama dengan ${number * j}`);
+            }
+
+            let index = 0;
+
+            // Fungsi rekursif untuk membaca kalimat berikutnya
+            function speakNext() {
+                if (index >= sentences.length) {
+                    // Jika sudah selesai semua
+                    btnElement.innerHTML = '🔊';
+                    btnElement.classList.remove('playing');
+                    return;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(sentences[index]);
+                
+                // Pengaturan Suara
+                utterance.lang = 'id-ID'; // Bahasa Indonesia
+                utterance.rate = 0.9;     // Kecepatan sedikit lambat agar jelas untuk anak
+                utterance.pitch = 1.1;    // Nada sedikit tinggi agar ceria
+
+                // Saat satu kalimat selesai, panggil fungsi ini lagi untuk kalimat berikutnya
+                utterance.onend = function() {
+                    index++;
+                    speakNext();
+                };
+
+                // Error handling jika suara terputus
+                utterance.onerror = function() {
+                    btnElement.innerHTML = '🔊';
+                    btnElement.classList.remove('playing');
+                };
+
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // Mulai membaca
+            speakNext();
+        }
+
+        // Looping untuk membuat 10 kartu
+        for (let i = 1; i <= 10; i++) {
+            const cardDiv = document.createElement("div");
+            cardDiv.className = "card";
+
+            // --- HEADER ---
+            const header = document.createElement("div");
+            header.className = "card-header";
+            header.style.backgroundColor = colors[i - 1];
+
+            // Judul: "Perkalian 1", "Perkalian 2", dst.
+            const title = document.createElement("span");
+            title.textContent = "Perkalian " + i;
+            
+            // Tombol Play
+            const btn = document.createElement("button");
+            btn.className = "play-btn";
+            btn.innerHTML = "🔊"; // Ikon Speaker
+            btn.setAttribute("aria-label", "Putar suara perkalian " + i);
+            
+            // Event Listener: Saat tombol diklik
+            btn.onclick = function() {
+                // Kita passing 'i' (angka), 'btn' (tombolnya sendiri), dan warna untuk styling
+                playGroup(i, btn, colors[i-1]);
+            };
+
+            header.appendChild(title);
+            header.appendChild(btn);
+            cardDiv.appendChild(header);
+
+            // --- DAFTAR ANGKA ---
+            const list = document.createElement("ul");
+
+            for (let j = 1; j <= 10; j++) {
+                const listItem = document.createElement("li");
+                listItem.innerHTML = `
+                    <span>${i} × ${j} = </span>
+                    <span class="result">${i * j}</span>
+                `;
+                list.appendChild(listItem);
+            }
+
+            cardDiv.appendChild(list);
+            container.appendChild(cardDiv);
+        }
+    </script>
+
+</body>
+</html>
