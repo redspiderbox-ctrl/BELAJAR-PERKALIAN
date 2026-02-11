@@ -69,7 +69,6 @@
             font-weight: 700;
         }
 
-        /* Styling Tombol Control */
         .play-btn {
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
@@ -93,7 +92,6 @@
             transform: scale(1.1);
         }
 
-        /* Animasi berdenyut saat sedang memutar */
         .play-btn.playing {
             background: white !important;
             animation: pulse 1.5s infinite;
@@ -135,9 +133,8 @@
             font-weight: 700;
         }
 
-        /* --- STYLE SAAT SEDANG DIBACA (ACTIVE READING) --- */
         li.active-reading {
-            background-color: #ffd700; /* Kuning Emas */
+            background-color: #ffd700;
             color: #333;
             font-weight: bold;
             transform: scale(1.05) translateX(8px);
@@ -167,9 +164,41 @@
         const container = document.getElementById("perkalianContainer");
         const namaAnak = "AUREL";
 
-        // Variabel Global untuk Melacak Status Suara
-        let activeBtn = null; // Tombol mana yang sedang aktif
-        let isPaused = false; // Apakah suara sedang dijeda?
+        // --- LOGIKA PEMILIHAN SUARA (VOICE FIX) ---
+        let selectedVoice = null;
+
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            
+            // 1. Cari semua suara Bahasa Indonesia
+            const idVoices = voices.filter(v => v.lang.includes('id-ID') || v.lang.includes('ind'));
+
+            if (idVoices.length === 0) return; // Tidak ada suara ID
+
+            // 2. Prioritaskan "Google Bahasa Indonesia" (Agar suara PC & HP Sama)
+            const googleVoice = idVoices.find(v => v.name.includes('Google') && v.lang.includes('id-ID'));
+            
+            // 3. Fallback ke "Microsoft" (Jika di PC tapi tidak ada Google)
+            const msVoice = idVoices.find(v => v.name.includes('Microsoft'));
+
+            if (googleVoice) {
+                selectedVoice = googleVoice;
+            } else if (msVoice) {
+                selectedVoice = msVoice;
+            } else {
+                selectedVoice = idVoices[0]; // Ambil suara ID pertama yang ditemukan
+            }
+            
+            console.log("Suara yang dipilih:", selectedVoice ? selectedVoice.name : "Default");
+        }
+
+        // Event listener: Suara di browser Chrome dimuat secara asinkron
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices(); // Coba langsung load (untuk Firefox/Safari)
+
+        // --- LOGIKA KONTROL UTAMA ---
+        let activeBtn = null;
+        let isPaused = false;
 
         const colors = [
             "#FF6B6B", "#FF4757", "#2ED573", "#1E90FF", "#FFA502", 
@@ -177,46 +206,38 @@
         ];
 
         function handlePlayPause(number, btnElement, listElement) {
-            // KASUS 1: Jika tombol yang diklik adalah tombol yang SEDANG AKTIF
+            // Jika tombol yang sama diklik
             if (activeBtn === btnElement) {
                 if (isPaused) {
-                    // AKSI: RESUME (Lanjutkan)
                     window.speechSynthesis.resume();
                     btnElement.innerHTML = '⏸';
                     isPaused = false;
                 } else {
-                    // AKSI: PAUSE (Jeda)
                     window.speechSynthesis.pause();
-                    btnElement.innerHTML = '▶️'; // Ubah ikon jadi Play
+                    btnElement.innerHTML = '▶️';
                     isPaused = true;
                 }
                 return;
             }
 
-            // KASUS 2: Jika tombol yang diklik adalah tombol BARU (bukan yang sedang aktif)
-            
-            // 1. Reset suara dan highlight global
+            // Jika tombol baru diklik
             window.speechSynthesis.cancel();
             clearAllHighlights();
 
-            // 2. Reset tombol lama (jika ada)
             if (activeBtn) {
                 activeBtn.innerHTML = '🔊';
                 activeBtn.classList.remove('playing');
             }
 
-            // 3. Set tombol baru sebagai aktif
             activeBtn = btnElement;
             isPaused = false;
             btnElement.innerHTML = '⏸';
             btnElement.classList.add('playing');
 
-            // 4. Mulai Proses Baca Baru
             startSequence(number, listElement);
         }
 
         function startSequence(number, listElement) {
-            // Siapkan antrian
             let queue = [];
 
             // Intro
@@ -240,17 +261,13 @@
             let currentIndex = 0;
 
             function speakNext() {
-                // Jika user menekan tombol lain di luar fungsi ini, activeBtn akan berubah
-                // atau suara dibatalkan (cancel), maka loop ini harus berhenti.
+                // Jika dijeda, jangan lanjut
                 if (window.speechSynthesis.paused) {
-                    // Jika dijeda oleh tombol pause, jangan lanjut ke index berikutnya
-                    // Tunggu sampai resume dipanggil.
                     return; 
                 }
 
-                // Cek apakah masih ada antrian
+                // Cek selesai
                 if (currentIndex >= queue.length) {
-                    // SELESAI
                     resetUI();
                     return;
                 }
@@ -258,13 +275,14 @@
                 const currentItem = queue[currentIndex];
                 const utterance = new SpeechSynthesisUtterance(currentItem.text);
                 
+                // --- PENERAPAN SUARA YANG SUDAH DIPILIH ---
+                utterance.voice = selectedVoice; 
                 utterance.lang = 'id-ID';
-                utterance.rate = 0.9; 
-                utterance.pitch = 1.2;
+                utterance.rate = 1.0;   // Kecepatan standar (agar sama di semua device)
+                utterance.pitch = 1.1;  // Nada sedikit ceria
 
-                // Saat mulai bicara
+                // Event Start
                 utterance.onstart = function() {
-                    // Highlight baris jika tipe matematika
                     if (currentItem.type === 'math') {
                         const liItems = listElement.getElementsByTagName('li');
                         if(liItems[currentItem.index]) {
@@ -274,9 +292,8 @@
                     }
                 };
 
-                // Saat selesai bicara satu kalimat
+                // Event End
                 utterance.onend = function() {
-                    // Hapus highlight
                     if (currentItem.type === 'math') {
                         const liItems = listElement.getElementsByTagName('li');
                         if(liItems[currentItem.index]) {
@@ -284,7 +301,6 @@
                         }
                     }
 
-                    // Lanjut ke kalimat berikutnya HANYA jika tidak dijeda
                     if (!isPaused) {
                         currentIndex++;
                         speakNext();
@@ -298,7 +314,6 @@
                 window.speechSynthesis.speak(utterance);
             }
 
-            // Mulai loop
             speakNext();
         }
 
@@ -316,7 +331,7 @@
             document.querySelectorAll('.active-reading').forEach(el => el.classList.remove('active-reading'));
         }
 
-        // Membuat Kartu
+        // Render Kartu
         for (let i = 1; i <= 10; i++) {
             const cardDiv = document.createElement("div");
             cardDiv.className = "card";
@@ -330,12 +345,11 @@
             
             const btn = document.createElement("button");
             btn.className = "play-btn";
-            btn.innerHTML = "🔊"; // Awal: Speaker
+            btn.innerHTML = "🔊";
             btn.setAttribute("aria-label", "Kontrol suara perkalian " + i);
             
             let listRef = null;
 
-            // Panggil fungsi handlePlayPause saat diklik
             btn.onclick = function() {
                 handlePlayPause(i, btn, listRef);
             };
