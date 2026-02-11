@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Belajar Perkalian dengan Suara</title>
-    <!-- Font Fredoka agar tulisan terlihat seperti tulisan anak-anak -->
+    <title>Belajar Perkalian Aurel</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -16,7 +15,6 @@
         body {
             font-family: 'Fredoka', sans-serif;
             background-color: var(--bg-color);
-            /* Pola latar belakang titik-titik */
             background-image: radial-gradient(#dbeafe 2px, transparent 2px);
             background-size: 30px 30px;
             margin: 0;
@@ -61,7 +59,6 @@
             box-shadow: 0 15px 35px rgba(0,0,0,0.12);
         }
 
-        /* Area Header */
         .card-header {
             padding: 15px 20px;
             display: flex;
@@ -72,7 +69,6 @@
             font-weight: 700;
         }
 
-        /* Tombol Suara */
         .play-btn {
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
@@ -91,16 +87,11 @@
 
         .play-btn:hover {
             background: white;
-            color: inherit; /* Mengambil warna teks header */
+            color: inherit;
             transform: scale(1.1);
         }
 
-        .play-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* Efek saat sedang memutar (bisa ditambahkan via JS class nanti jika mau) */
-        .playing {
+        .play-btn.playing {
             background: white !important;
             animation: pulse 1s infinite;
         }
@@ -115,23 +106,25 @@
             list-style: none;
             padding: 20px;
             margin: 0;
-            flex-grow: 1; /* Agar list memenuhi sisa ruang */
+            flex-grow: 1;
         }
 
         li {
             font-size: 1.5rem;
-            padding: 10px 15px;
+            padding: 12px 15px;
             margin-bottom: 8px;
             background-color: #f8f9fa;
             border-radius: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: background 0.2s;
+            transition: all 0.2s ease; /* Transisi halus */
+            border-left: 5px solid transparent; /* Persiapan untuk border highlight */
         }
 
         li:hover {
             background-color: #eef2ff;
+            transform: translateX(5px);
         }
 
         .result {
@@ -139,7 +132,20 @@
             font-weight: 700;
         }
 
-        /* Responsif untuk HP */
+        /* --- STYLE BARU: SAAT SEDANG DIBACA (ACTIVE READING) --- */
+        li.active-reading {
+            background-color: #ffd700; /* Warna Kuning Emas */
+            color: #333;
+            font-weight: bold;
+            transform: scale(1.05) translateX(8px); /* Agak membesar dan geser kanan */
+            border-left: 8px solid #ff4757; /* Garis merah di kiri */
+            box-shadow: 0 8px 15px rgba(255, 215, 0, 0.4); /* Bayangan berwarna */
+        }
+
+        li.active-reading .result {
+            color: #d63031; /* Warna hasil ikut berubah jadi merah gelap */
+        }
+
         @media (max-width: 600px) {
             h1 { font-size: 2.2rem; }
             .container { grid-template-columns: 1fr; }
@@ -150,63 +156,104 @@
 </head>
 <body>
 
-    <h1>Belajar <span>Perkalian</span> 🔊</h1>
+    <h1>Belajar <span>Perkalian</span> Aurel 🎈</h1>
 
     <div class="container" id="perkalianContainer"></div>
 
     <script>
         const container = document.getElementById("perkalianContainer");
+        const namaAnak = "AUREL"; // Nama anak
 
-        // Palet warna cerah untuk setiap kelompok
         const colors = [
             "#FF6B6B", "#FF4757", "#2ED573", "#1E90FF", "#FFA502", 
             "#3742FA", "#8E44AD", "#FF6B81", "#00CEC9", "#6C5CE7"
         ];
 
-        // Fungsi untuk memicu suara
-        function playGroup(number, btnElement, color) {
-            // 1. Hentikan suara yang sedang berjalan (jika ada)
+        function playGroup(number, btnElement, listElement) {
+            // 1. Hentikan suara dan bersihkan highlight jika ada
             window.speechSynthesis.cancel();
+            clearHighlights(listElement);
 
-            // 2. Ubah tampilan tombol seolah-olah sedang loading/playing
-            btnElement.innerHTML = '⏸'; // Ikon pause/stop
+            // 2. Ubah tampilan tombol
+            btnElement.innerHTML = '⏸';
             btnElement.classList.add('playing');
-            
-            // 3. Siapkan daftar kalimat
-            const sentences = [];
+
+            // 3. Siapkan antrian kalimat (Queue)
+            // Kita buat array object berisi teks dan tipe aksinya
+            let queue = [];
+
+            // A. INTRO
+            queue.push({
+                text: `${namaAnak}, mari kita belajar perkalian.`,
+                type: 'intro'
+            });
+
+            // B. ISI PERKALIAN
             for (let j = 1; j <= 10; j++) {
-                // Format kalimat: "Satu kali satu sama dengan satu"
-                sentences.push(`${number} kali ${j} sama dengan ${number * j}`);
+                queue.push({
+                    text: `${number} kali ${j} sama dengan ${number * j}`,
+                    type: 'math',
+                    index: j - 1 // index untuk elemen li (0 sampai 9)
+                });
             }
 
-            let index = 0;
+            // C. OUTRO
+            queue.push({
+                text: `Terimakasih ${namaAnak} sudah belajar Perkalian, semoga jadi anak pintar.`,
+                type: 'outro'
+            });
 
-            // Fungsi rekursif untuk membaca kalimat berikutnya
+            let currentIndex = 0;
+
             function speakNext() {
-                if (index >= sentences.length) {
-                    // Jika sudah selesai semua
+                // Cek jika sudah selesai antrian
+                if (currentIndex >= queue.length) {
                     btnElement.innerHTML = '🔊';
                     btnElement.classList.remove('playing');
                     return;
                 }
 
-                const utterance = new SpeechSynthesisUtterance(sentences[index]);
+                const currentItem = queue[currentIndex];
+                const utterance = new SpeechSynthesisUtterance(currentItem.text);
                 
                 // Pengaturan Suara
-                utterance.lang = 'id-ID'; // Bahasa Indonesia
-                utterance.rate = 0.9;     // Kecepatan sedikit lambat agar jelas untuk anak
-                utterance.pitch = 1.1;    // Nada sedikit tinggi agar ceria
+                utterance.lang = 'id-ID';
+                utterance.rate = 0.9; 
+                utterance.pitch = 1.2; // Nada sedikit lebih tinggi agar ceria
 
-                // Saat satu kalimat selesai, panggil fungsi ini lagi untuk kalimat berikutnya
+                // SAAT MULAI BICARA (ON START)
+                utterance.onstart = function() {
+                    if (currentItem.type === 'math') {
+                        // Tambahkan class highlight ke baris yang sedang dibaca
+                        const liItems = listElement.getElementsByTagName('li');
+                        if(liItems[currentItem.index]) {
+                            liItems[currentItem.index].classList.add('active-reading');
+                            
+                            // Opsional: Auto scroll jika di layar kecil
+                            liItems[currentItem.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                };
+
+                // SAAT SELESAI BICARA (ON END)
                 utterance.onend = function() {
-                    index++;
+                    // Hapus highlight jika tipe matematika
+                    if (currentItem.type === 'math') {
+                        const liItems = listElement.getElementsByTagName('li');
+                        if(liItems[currentItem.index]) {
+                            liItems[currentItem.index].classList.remove('active-reading');
+                        }
+                    }
+
+                    // Lanjut ke kalimat berikutnya
+                    currentIndex++;
                     speakNext();
                 };
 
-                // Error handling jika suara terputus
                 utterance.onerror = function() {
                     btnElement.innerHTML = '🔊';
                     btnElement.classList.remove('playing');
+                    clearHighlights(listElement);
                 };
 
                 window.speechSynthesis.speak(utterance);
@@ -216,38 +263,45 @@
             speakNext();
         }
 
+        // Fungsi helper untuk memastikan tidak ada sisa highlight
+        function clearHighlights(ulElement) {
+            const items = ulElement.getElementsByTagName('li');
+            for (let item of items) {
+                item.classList.remove('active-reading');
+            }
+        }
+
         // Looping untuk membuat 10 kartu
         for (let i = 1; i <= 10; i++) {
             const cardDiv = document.createElement("div");
             cardDiv.className = "card";
 
-            // --- HEADER ---
             const header = document.createElement("div");
             header.className = "card-header";
             header.style.backgroundColor = colors[i - 1];
 
-            // Judul: "Perkalian 1", "Perkalian 2", dst.
             const title = document.createElement("span");
             title.textContent = "Perkalian " + i;
             
-            // Tombol Play
             const btn = document.createElement("button");
             btn.className = "play-btn";
-            btn.innerHTML = "🔊"; // Ikon Speaker
+            btn.innerHTML = "🔊";
             btn.setAttribute("aria-label", "Putar suara perkalian " + i);
             
-            // Event Listener: Saat tombol diklik
+            // Kita perlu mempass elemen <ul> ke fungsi agar kita bisa memanipulasi isinya (highlight)
+            // Karena <ul> dibuat setelah header, kita buat variabel referensi dulu
+            let listRef = null;
+
             btn.onclick = function() {
-                // Kita passing 'i' (angka), 'btn' (tombolnya sendiri), dan warna untuk styling
-                playGroup(i, btn, colors[i-1]);
+                playGroup(i, btn, listRef);
             };
 
             header.appendChild(title);
             header.appendChild(btn);
             cardDiv.appendChild(header);
 
-            // --- DAFTAR ANGKA ---
             const list = document.createElement("ul");
+            listRef = list; // Simpan referensi <ul> ke variabel
 
             for (let j = 1; j <= 10; j++) {
                 const listItem = document.createElement("li");
