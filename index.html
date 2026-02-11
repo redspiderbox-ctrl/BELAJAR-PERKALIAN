@@ -69,6 +69,7 @@
             font-weight: 700;
         }
 
+        /* Styling Tombol Control */
         .play-btn {
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
@@ -83,6 +84,7 @@
             justify-content: center;
             transition: all 0.2s;
             outline: none;
+            user-select: none;
         }
 
         .play-btn:hover {
@@ -91,15 +93,16 @@
             transform: scale(1.1);
         }
 
+        /* Animasi berdenyut saat sedang memutar */
         .play-btn.playing {
             background: white !important;
-            animation: pulse 1s infinite;
+            animation: pulse 1.5s infinite;
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
         }
 
         ul {
@@ -118,8 +121,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: all 0.2s ease; /* Transisi halus */
-            border-left: 5px solid transparent; /* Persiapan untuk border highlight */
+            transition: all 0.2s ease;
+            border-left: 5px solid transparent;
         }
 
         li:hover {
@@ -132,18 +135,18 @@
             font-weight: 700;
         }
 
-        /* --- STYLE BARU: SAAT SEDANG DIBACA (ACTIVE READING) --- */
+        /* --- STYLE SAAT SEDANG DIBACA (ACTIVE READING) --- */
         li.active-reading {
-            background-color: #ffd700; /* Warna Kuning Emas */
+            background-color: #ffd700; /* Kuning Emas */
             color: #333;
             font-weight: bold;
-            transform: scale(1.05) translateX(8px); /* Agak membesar dan geser kanan */
-            border-left: 8px solid #ff4757; /* Garis merah di kiri */
-            box-shadow: 0 8px 15px rgba(255, 215, 0, 0.4); /* Bayangan berwarna */
+            transform: scale(1.05) translateX(8px);
+            border-left: 8px solid #ff4757;
+            box-shadow: 0 8px 15px rgba(255, 215, 0, 0.4);
         }
 
         li.active-reading .result {
-            color: #d63031; /* Warna hasil ikut berubah jadi merah gelap */
+            color: #d63031;
         }
 
         @media (max-width: 600px) {
@@ -162,42 +165,73 @@
 
     <script>
         const container = document.getElementById("perkalianContainer");
-        const namaAnak = "AUREL"; // Nama anak
+        const namaAnak = "AUREL";
+
+        // Variabel Global untuk Melacak Status Suara
+        let activeBtn = null; // Tombol mana yang sedang aktif
+        let isPaused = false; // Apakah suara sedang dijeda?
 
         const colors = [
             "#FF6B6B", "#FF4757", "#2ED573", "#1E90FF", "#FFA502", 
             "#3742FA", "#8E44AD", "#FF6B81", "#00CEC9", "#6C5CE7"
         ];
 
-        function playGroup(number, btnElement, listElement) {
-            // 1. Hentikan suara dan bersihkan highlight jika ada
-            window.speechSynthesis.cancel();
-            clearHighlights(listElement);
+        function handlePlayPause(number, btnElement, listElement) {
+            // KASUS 1: Jika tombol yang diklik adalah tombol yang SEDANG AKTIF
+            if (activeBtn === btnElement) {
+                if (isPaused) {
+                    // AKSI: RESUME (Lanjutkan)
+                    window.speechSynthesis.resume();
+                    btnElement.innerHTML = '⏸';
+                    isPaused = false;
+                } else {
+                    // AKSI: PAUSE (Jeda)
+                    window.speechSynthesis.pause();
+                    btnElement.innerHTML = '▶️'; // Ubah ikon jadi Play
+                    isPaused = true;
+                }
+                return;
+            }
 
-            // 2. Ubah tampilan tombol
+            // KASUS 2: Jika tombol yang diklik adalah tombol BARU (bukan yang sedang aktif)
+            
+            // 1. Reset suara dan highlight global
+            window.speechSynthesis.cancel();
+            clearAllHighlights();
+
+            // 2. Reset tombol lama (jika ada)
+            if (activeBtn) {
+                activeBtn.innerHTML = '🔊';
+                activeBtn.classList.remove('playing');
+            }
+
+            // 3. Set tombol baru sebagai aktif
+            activeBtn = btnElement;
+            isPaused = false;
             btnElement.innerHTML = '⏸';
             btnElement.classList.add('playing');
 
-            // 3. Siapkan antrian kalimat (Queue)
-            // Kita buat array object berisi teks dan tipe aksinya
+            // 4. Mulai Proses Baca Baru
+            startSequence(number, listElement);
+        }
+
+        function startSequence(number, listElement) {
+            // Siapkan antrian
             let queue = [];
 
-            // A. INTRO
-            queue.push({
-                text: `${namaAnak}, mari kita belajar perkalian.`,
-                type: 'intro'
-            });
+            // Intro
+            queue.push({ text: `${namaAnak}, mari kita belajar perkalian.`, type: 'intro' });
 
-            // B. ISI PERKALIAN
+            // Isi
             for (let j = 1; j <= 10; j++) {
                 queue.push({
                     text: `${number} kali ${j} sama dengan ${number * j}`,
                     type: 'math',
-                    index: j - 1 // index untuk elemen li (0 sampai 9)
+                    index: j - 1
                 });
             }
 
-            // C. OUTRO
+            // Outro
             queue.push({
                 text: `Terimakasih ${namaAnak} sudah belajar Perkalian, semoga jadi anak pintar.`,
                 type: 'outro'
@@ -206,38 +240,43 @@
             let currentIndex = 0;
 
             function speakNext() {
-                // Cek jika sudah selesai antrian
+                // Jika user menekan tombol lain di luar fungsi ini, activeBtn akan berubah
+                // atau suara dibatalkan (cancel), maka loop ini harus berhenti.
+                if (window.speechSynthesis.paused) {
+                    // Jika dijeda oleh tombol pause, jangan lanjut ke index berikutnya
+                    // Tunggu sampai resume dipanggil.
+                    return; 
+                }
+
+                // Cek apakah masih ada antrian
                 if (currentIndex >= queue.length) {
-                    btnElement.innerHTML = '🔊';
-                    btnElement.classList.remove('playing');
+                    // SELESAI
+                    resetUI();
                     return;
                 }
 
                 const currentItem = queue[currentIndex];
                 const utterance = new SpeechSynthesisUtterance(currentItem.text);
                 
-                // Pengaturan Suara
                 utterance.lang = 'id-ID';
                 utterance.rate = 0.9; 
-                utterance.pitch = 1.2; // Nada sedikit lebih tinggi agar ceria
+                utterance.pitch = 1.2;
 
-                // SAAT MULAI BICARA (ON START)
+                // Saat mulai bicara
                 utterance.onstart = function() {
+                    // Highlight baris jika tipe matematika
                     if (currentItem.type === 'math') {
-                        // Tambahkan class highlight ke baris yang sedang dibaca
                         const liItems = listElement.getElementsByTagName('li');
                         if(liItems[currentItem.index]) {
                             liItems[currentItem.index].classList.add('active-reading');
-                            
-                            // Opsional: Auto scroll jika di layar kecil
                             liItems[currentItem.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
                     }
                 };
 
-                // SAAT SELESAI BICARA (ON END)
+                // Saat selesai bicara satu kalimat
                 utterance.onend = function() {
-                    // Hapus highlight jika tipe matematika
+                    // Hapus highlight
                     if (currentItem.type === 'math') {
                         const liItems = listElement.getElementsByTagName('li');
                         if(liItems[currentItem.index]) {
@@ -245,33 +284,39 @@
                         }
                     }
 
-                    // Lanjut ke kalimat berikutnya
-                    currentIndex++;
-                    speakNext();
+                    // Lanjut ke kalimat berikutnya HANYA jika tidak dijeda
+                    if (!isPaused) {
+                        currentIndex++;
+                        speakNext();
+                    }
                 };
 
                 utterance.onerror = function() {
-                    btnElement.innerHTML = '🔊';
-                    btnElement.classList.remove('playing');
-                    clearHighlights(listElement);
+                    resetUI();
                 };
 
                 window.speechSynthesis.speak(utterance);
             }
 
-            // Mulai membaca
+            // Mulai loop
             speakNext();
         }
 
-        // Fungsi helper untuk memastikan tidak ada sisa highlight
-        function clearHighlights(ulElement) {
-            const items = ulElement.getElementsByTagName('li');
-            for (let item of items) {
-                item.classList.remove('active-reading');
+        function resetUI() {
+            if (activeBtn) {
+                activeBtn.innerHTML = '🔊';
+                activeBtn.classList.remove('playing');
+                activeBtn = null;
             }
+            isPaused = false;
+            clearAllHighlights();
         }
 
-        // Looping untuk membuat 10 kartu
+        function clearAllHighlights() {
+            document.querySelectorAll('.active-reading').forEach(el => el.classList.remove('active-reading'));
+        }
+
+        // Membuat Kartu
         for (let i = 1; i <= 10; i++) {
             const cardDiv = document.createElement("div");
             cardDiv.className = "card";
@@ -285,15 +330,14 @@
             
             const btn = document.createElement("button");
             btn.className = "play-btn";
-            btn.innerHTML = "🔊";
-            btn.setAttribute("aria-label", "Putar suara perkalian " + i);
+            btn.innerHTML = "🔊"; // Awal: Speaker
+            btn.setAttribute("aria-label", "Kontrol suara perkalian " + i);
             
-            // Kita perlu mempass elemen <ul> ke fungsi agar kita bisa memanipulasi isinya (highlight)
-            // Karena <ul> dibuat setelah header, kita buat variabel referensi dulu
             let listRef = null;
 
+            // Panggil fungsi handlePlayPause saat diklik
             btn.onclick = function() {
-                playGroup(i, btn, listRef);
+                handlePlayPause(i, btn, listRef);
             };
 
             header.appendChild(title);
@@ -301,7 +345,7 @@
             cardDiv.appendChild(header);
 
             const list = document.createElement("ul");
-            listRef = list; // Simpan referensi <ul> ke variabel
+            listRef = list;
 
             for (let j = 1; j <= 10; j++) {
                 const listItem = document.createElement("li");
