@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Belajar Perkalian Aurel</title>
+    <title>Belajar Perkalian Aurel - Suara Sama</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -118,8 +118,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: all 0.2s ease; /* Transisi halus */
-            border-left: 5px solid transparent; /* Persiapan untuk border highlight */
+            transition: all 0.2s ease;
+            border-left: 5px solid transparent;
         }
 
         li:hover {
@@ -132,18 +132,31 @@
             font-weight: 700;
         }
 
-        /* --- STYLE BARU: SAAT SEDANG DIBACA (ACTIVE READING) --- */
+        /* Style Highlight saat membaca */
         li.active-reading {
-            background-color: #ffd700; /* Warna Kuning Emas */
+            background-color: #ffd700;
             color: #333;
             font-weight: bold;
-            transform: scale(1.05) translateX(8px); /* Agak membesar dan geser kanan */
-            border-left: 8px solid #ff4757; /* Garis merah di kiri */
-            box-shadow: 0 8px 15px rgba(255, 215, 0, 0.4); /* Bayangan berwarna */
+            transform: scale(1.05) translateX(8px);
+            border-left: 8px solid #ff4757;
+            box-shadow: 0 8px 15px rgba(255, 215, 0, 0.4);
         }
 
         li.active-reading .result {
-            color: #d63031; /* Warna hasil ikut berubah jadi merah gelap */
+            color: #d63031;
+        }
+
+        /* Indikator Suara yang dipakai */
+        #voice-status {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 20px;
+            background: #fff;
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         @media (max-width: 600px) {
@@ -156,48 +169,96 @@
 </head>
 <body>
 
-    <h1>Belajar <span>Perkalian</span> Aurel 🎈</h1>
+    <h1>Belajar <span>Perkalian</span> ( Aurel ) 🎈</h1>
+    
+    <!-- Teks kecil untuk memastikan user tahu suara mana yang aktif -->
+    <div style="text-align:center;">
+        <div id="voice-status">Memuat Suara...</div>
+    </div>
+    <br>
 
     <div class="container" id="perkalianContainer"></div>
 
     <script>
         const container = document.getElementById("perkalianContainer");
-        const namaAnak = "AUREL"; // Nama anak
+        const voiceStatus = document.getElementById("voice-status");
+        const namaAnak = "AUREL";
+        
+        let indonesianVoice = null;
 
+        // --- LOGIKA PEMILIH SUARA (AGAR SAMA DI PC & HP) ---
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            
+            // 1. PRIORITAS UTAMA: Cari "Google Bahasa Indonesia"
+            // Suara ini ada di HP Android dan juga di Chrome PC.
+            // Ini adalah kunci agar suaranya terdengar sama.
+            indonesianVoice = voices.find(voice => voice.name.includes("Google Bahasa Indonesia"));
+
+            // 2. PRIORITAS KEDUA: Jika tidak ada Google, cari "Microsoft Andika" (Standard Windows)
+            if (!indonesianVoice) {
+                indonesianVoice = voices.find(voice => voice.name.includes("Andika"));
+            }
+
+            // 3. FALLBACK: Jika tidak ada keduanya, ambil suara Indonesia apa saja yang tersedia
+            if (!indonesianVoice) {
+                indonesianVoice = voices.find(voice => voice.lang.includes('id-ID') || voice.lang.includes('ind'));
+            }
+
+            // Update status di layar
+            if (indonesianVoice) {
+                voiceStatus.textContent = "Suara Aktif: " + indonesianVoice.name;
+                voiceStatus.style.color = "green";
+                voiceStatus.style.fontWeight = "bold";
+            } else {
+                voiceStatus.textContent = "Suara Bahasa Indonesia tidak ditemukan di perangkat ini.";
+                voiceStatus.style.color = "red";
+            }
+        }
+
+        // Browser Chrome memuat suara secara asinkron (terlambat), jadi kita butuh event listener ini
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        // Panggil sekali saja untuk browser lain (Safari/Firefox)
+        loadVoices();
+
+        // --- LOGIKA UTAMA APLIKASI ---
         const colors = [
             "#FF6B6B", "#FF4757", "#2ED573", "#1E90FF", "#FFA502", 
             "#3742FA", "#8E44AD", "#FF6B81", "#00CEC9", "#6C5CE7"
         ];
 
         function playGroup(number, btnElement, listElement) {
-            // 1. Hentikan suara dan bersihkan highlight jika ada
+            // Pastikan suara sudah dimuat
+            if (!indonesianVoice) {
+                alert("Mohon tunggu sebentar, sedang memuat suara...");
+                loadVoices();
+                return;
+            }
+
             window.speechSynthesis.cancel();
             clearHighlights(listElement);
 
-            // 2. Ubah tampilan tombol
             btnElement.innerHTML = '⏸';
             btnElement.classList.add('playing');
 
-            // 3. Siapkan antrian kalimat (Queue)
-            // Kita buat array object berisi teks dan tipe aksinya
             let queue = [];
 
-            // A. INTRO
+            // INTRO
             queue.push({
                 text: `${namaAnak}, mari kita belajar perkalian.`,
                 type: 'intro'
             });
 
-            // B. ISI PERKALIAN
+            // ISI
             for (let j = 1; j <= 10; j++) {
                 queue.push({
                     text: `${number} kali ${j} sama dengan ${number * j}`,
                     type: 'math',
-                    index: j - 1 // index untuk elemen li (0 sampai 9)
+                    index: j - 1
                 });
             }
 
-            // C. OUTRO
+            // OUTRO
             queue.push({
                 text: `Terimakasih ${namaAnak} sudah belajar Perkalian, semoga jadi anak pintar.`,
                 type: 'outro'
@@ -206,7 +267,6 @@
             let currentIndex = 0;
 
             function speakNext() {
-                // Cek jika sudah selesai antrian
                 if (currentIndex >= queue.length) {
                     btnElement.innerHTML = '🔊';
                     btnElement.classList.remove('playing');
@@ -216,36 +276,32 @@
                 const currentItem = queue[currentIndex];
                 const utterance = new SpeechSynthesisUtterance(currentItem.text);
                 
-                // Pengaturan Suara
+                // --- PAKSAKAN PENGGUNAAN SUARA YANG SUDAH DIPILIH ---
+                utterance.voice = indonesianVoice;
+                
+                // Pengaturan suara agar seragam
                 utterance.lang = 'id-ID';
-                utterance.rate = 0.9; 
-                utterance.pitch = 1.2; // Nada sedikit lebih tinggi agar ceria
+                utterance.rate = 1.0;   // Kecepatan normal (1.0 paling standar antar mesin)
+                utterance.pitch = 1.0;  // Nada normal
 
-                // SAAT MULAI BICARA (ON START)
+                // Highlight Logic
                 utterance.onstart = function() {
                     if (currentItem.type === 'math') {
-                        // Tambahkan class highlight ke baris yang sedang dibaca
                         const liItems = listElement.getElementsByTagName('li');
                         if(liItems[currentItem.index]) {
                             liItems[currentItem.index].classList.add('active-reading');
-                            
-                            // Opsional: Auto scroll jika di layar kecil
                             liItems[currentItem.index].scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
                     }
                 };
 
-                // SAAT SELESAI BICARA (ON END)
                 utterance.onend = function() {
-                    // Hapus highlight jika tipe matematika
                     if (currentItem.type === 'math') {
                         const liItems = listElement.getElementsByTagName('li');
                         if(liItems[currentItem.index]) {
                             liItems[currentItem.index].classList.remove('active-reading');
                         }
                     }
-
-                    // Lanjut ke kalimat berikutnya
                     currentIndex++;
                     speakNext();
                 };
@@ -259,11 +315,9 @@
                 window.speechSynthesis.speak(utterance);
             }
 
-            // Mulai membaca
             speakNext();
         }
 
-        // Fungsi helper untuk memastikan tidak ada sisa highlight
         function clearHighlights(ulElement) {
             const items = ulElement.getElementsByTagName('li');
             for (let item of items) {
@@ -271,7 +325,7 @@
             }
         }
 
-        // Looping untuk membuat 10 kartu
+        // Generate UI
         for (let i = 1; i <= 10; i++) {
             const cardDiv = document.createElement("div");
             cardDiv.className = "card";
@@ -286,12 +340,8 @@
             const btn = document.createElement("button");
             btn.className = "play-btn";
             btn.innerHTML = "🔊";
-            btn.setAttribute("aria-label", "Putar suara perkalian " + i);
             
-            // Kita perlu mempass elemen <ul> ke fungsi agar kita bisa memanipulasi isinya (highlight)
-            // Karena <ul> dibuat setelah header, kita buat variabel referensi dulu
             let listRef = null;
-
             btn.onclick = function() {
                 playGroup(i, btn, listRef);
             };
@@ -301,7 +351,7 @@
             cardDiv.appendChild(header);
 
             const list = document.createElement("ul");
-            listRef = list; // Simpan referensi <ul> ke variabel
+            listRef = list;
 
             for (let j = 1; j <= 10; j++) {
                 const listItem = document.createElement("li");
